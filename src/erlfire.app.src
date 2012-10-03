@@ -1,0 +1,9 @@
+{application,erlfire,
+             [{description,"Erlang Campfire Client"},
+              {vsn,"0.1"},
+              {registered,[]},
+              {applications,[kernel,stdlib,lager,inets,ssl]},
+	      {env, [ 
+	      	    {timeout, 10000}
+		]}
+]}.
