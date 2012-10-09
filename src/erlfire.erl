@@ -7,7 +7,7 @@
 -behavior(gen_server).
 -include("erlfire.hrl").
 
--record(state, {site, key, timeout, success=0, error=0}).
+-record(state, {site, key, timeout, success=0, error=0, last_warning=0}).
 
 -export([start_link/2, start_link/3, chat/3, account/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -78,14 +78,21 @@ get_account(#state{site = Site} = State) ->
 	    {error, bump_counter(#state.error, State)}
     end.
 
-hit_campfire(Method, Request, #state{timeout = Timeout} = State) ->
+hit_campfire(Method, Request, #state{timeout = Timeout, last_warning = LW} = State) ->
     case httpc:request(Method, Request, [{timeout, Timeout}], []) of
 	{ok, {{_, Status, _}, Headers, Body}} ->
 	    {ok, Status, Headers, Body};
 	{error, {failed_connect, _}} ->
-	    lager:warning("unable to contact campfire"),
 	    error
     end.
 
-bump_counter(Counter, State) ->
-    erlang:setelement(Counter, State, element(Counter, State) + 1).
+bump_counter(Counter, #state{last_warning = LW} = State) ->
+    Now = calendar:datetime_to_gregorian_seconds(calendar:universal_time()),
+    S0 = if
+	     Counter == #state.error, Now - LW > ?warn_every ->
+		 lager:warning("unable to contact campfire"),
+		 State#state{last_warning = Now};
+	true ->
+	    State
+    end,
+    erlang:setelement(Counter, S0, element(Counter, S0) + 1).
