@@ -78,7 +78,7 @@ get_account(#state{site = Site} = State) ->
 	    {error, bump_counter(#state.error, State)}
     end.
 
-hit_campfire(Method, Request, #state{timeout = Timeout, last_warning = LW} = State) ->
+hit_campfire(Method, Request, #state{timeout = Timeout}) ->
     case httpc:request(Method, Request, [{timeout, Timeout}], []) of
 	{ok, {{_, Status, _}, Headers, Body}} ->
 	    {ok, Status, Headers, Body};
