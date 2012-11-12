@@ -83,7 +83,9 @@ hit_campfire(Method, Request, #state{timeout = Timeout}) ->
 	{ok, {{_, Status, _}, Headers, Body}} ->
 	    {ok, Status, Headers, Body};
 	{error, {failed_connect, _}} ->
-	    error
+	    error;
+        {error, socket_closed_remotely}->
+            error
     end.
 
 bump_counter(Counter, #state{last_warning = LW} = State) ->
