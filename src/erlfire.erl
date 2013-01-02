@@ -63,9 +63,11 @@ send_chat(Room, Message, #state{site = Site} = State) ->
 	Body when is_binary(Body) ->
 	    case hit_campfire(post, {Url, headers(State), "application/json", Body}, State) of
 		{ok, 201, _Headers, _Body} ->
-		    bump_counter(#state.success, State);
+                    bump_success(State);
+                {ok, Status, _Headers, _Body} ->
+                    bump_error("unexpected status while sending chat : " ++ integer_to_list(Status), State);
 		error ->
-		    bump_counter(#state.error, State)
+                    bump_error("unexpected error while sending chat", State)
 	    end
     end.
 
@@ -73,9 +75,11 @@ get_account(#state{site = Site} = State) ->
     Url = "https://" ++ Site ++ ".campfirenow.com/account.json",
     case hit_campfire(get, {Url, headers(State)}, State) of
 	{ok, 200, _Headers, Body} ->
-	    {erlfire_parse:decode(#account{}, Body), bump_counter(#state.success, State)};
+	    {erlfire_parse:decode(#account{}, Body), bump_success(State)};
+        {ok, Status, _Headers, _Body} ->
+            bump_error("unexpected status while requesting account : " ++ integer_to_list(Status), State);
 	error ->
-	    {error, bump_counter(#state.error, State)}
+            {error, bump_error("unexpected error while requesting account", State)}
     end.
 
 hit_campfire(Method, Request, #state{timeout = Timeout}) ->
@@ -88,11 +92,17 @@ hit_campfire(Method, Request, #state{timeout = Timeout}) ->
             error
     end.
 
-bump_counter(Counter, #state{last_warning = LW} = State) ->
+bump_success(State) ->
+    bump_counter(#state.success, undefined, State).
+
+bump_error(Message, State) ->
+    bump_counter(#state.error, Message, State).
+
+bump_counter(Counter, Message, #state{last_warning = LW} = State) ->
     Now = calendar:datetime_to_gregorian_seconds(calendar:universal_time()),
     S0 = if
 	     Counter == #state.error, Now - LW > ?warn_every ->
-		 lager:warning("unable to contact campfire"),
+		 lager:warning(Message),
 		 State#state{last_warning = Now};
 	true ->
 	    State
